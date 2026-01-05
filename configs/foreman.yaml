@@ -1,0 +1,31 @@
+repo:
+  path: /home/somecodebasepath
+  remote: origin
+  main_branch: main
+
+telegram:
+  token: ${TELEGRAM_BOT_TOKEN}
+  chat_id: ${TELEGRAM_CHAT_ID}
+
+agents:
+  claude-code:
+    enabled: true
+    timeout: 30m
+    priority: 1
+  codex:
+    enabled: true
+    timeout: 30m
+    priority: 2
+
+review:
+  tools:
+    coderabbit: true
+    linters:
+      - eslint
+      - ruff
+  use_llm: true
+  max_retries: 2
+
+concurrency:
+  max_tasks: 3
+  task_timeout: 30m
