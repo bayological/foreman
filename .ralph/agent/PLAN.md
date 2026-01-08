@@ -49,9 +49,18 @@ The codebase is complete with all core functionality and enhancements implemente
 4. **Resume Command** - `/resume <id>` to continue interrupted features
 5. **Branch Naming** - Already using `feature/<id>-<name>` format
 
+### Phase 9: Unit Tests [DONE]
+- Validation package tests (branch names, UUIDs, error sanitization)
+- Workflow state machine tests (transitions, phase info)
+- Feature lifecycle tests (creation, transitions, progress)
+- Task tests (creation, context, metadata)
+- SpecKit parser tests (spec, plan, tasks parsing)
+- Storage tests (save, load, delete operations)
+- Tools runner tests (command execution, errors, timeouts)
+
 ## Future Enhancements (Not Started)
 
 1. **Metrics/Telemetry** - Track task success rates, durations
 2. **Slack Integration** - Alternative to Telegram
 3. **Dashboard** - Web UI for monitoring
-4. **Unit Tests** - Add test coverage for core functionality
+4. **Integration Tests** - End-to-end workflow tests with mocked agents
