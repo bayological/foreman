@@ -30,6 +30,7 @@ type Task struct {
 	Status       TaskStatus
 	CreatedAt    time.Time
 	FeatureID    string
+	IsParallel   bool
 	Metadata     map[string]string
 }
 

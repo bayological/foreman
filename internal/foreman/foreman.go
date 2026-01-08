@@ -342,8 +342,8 @@ func (f *Foreman) runTaskingPhase(ctx context.Context, feature *Feature) {
 		task.Spec = item.Title
 		task.FeatureID = feature.ID
 		task.Branch = feature.Branch
+		task.IsParallel = item.IsParallel
 		task.Metadata["user_story"] = item.UserStoryRef
-		task.Metadata["is_parallel"] = fmt.Sprintf("%v", item.IsParallel)
 		task.Metadata["is_test"] = fmt.Sprintf("%v", item.IsTest)
 		tasks = append(tasks, task)
 	}
@@ -413,8 +413,21 @@ func (f *Foreman) runImplementationPhase(ctx context.Context, feature *Feature) 
 		feature.ID, len(feature.Tasks),
 	))
 
+	// Queue all parallel tasks and the first sequential task
+	// Sequential tasks will be queued one at a time via approveFeatureCode
+	parallelQueued := false
 	for _, task := range feature.Tasks {
-		f.taskQueue <- task
+		if task.IsParallel {
+			f.taskQueue <- task
+			parallelQueued = true
+		}
+	}
+
+	// If no parallel tasks, start with the first task
+	if !parallelQueued {
+		if task := feature.NextTask(); task != nil {
+			f.taskQueue <- task
+		}
 	}
 }
 
@@ -657,16 +670,32 @@ func (f *Foreman) approveFeatureCode(ctx context.Context, featureID string) {
 		feature.CurrentTask.Status = StatusComplete
 	}
 
-	// Check if there are more tasks
-	if feature.HasMoreTasks() {
-		task := feature.NextTask()
-		if task != nil {
+	// Check if all tasks are complete
+	allComplete := true
+	for _, task := range feature.Tasks {
+		if task.Status != StatusComplete {
+			allComplete = false
+			break
+		}
+	}
+
+	if allComplete {
+		f.completeFeature(feature)
+		return
+	}
+
+	// Find the next sequential (non-parallel) task that isn't complete
+	for _, task := range feature.Tasks {
+		if !task.IsParallel && task.Status == StatusPending {
+			feature.CurrentTask = task
 			f.telegram.Send(fmt.Sprintf("Starting next task `%s` for feature `%s`...", task.ID, featureID))
 			f.taskQueue <- task
+			return
 		}
-	} else {
-		f.completeFeature(feature)
 	}
+
+	// If we get here, there are still parallel tasks running
+	f.telegram.Send(fmt.Sprintf("Waiting for remaining parallel tasks in feature `%s`...", featureID))
 }
 
 func truncate(s string, max int) string {
