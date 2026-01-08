@@ -12,6 +12,7 @@ func (f *Foreman) registerHandlers() {
 	f.telegram.RegisterCommand("newfeature", f.handleNewFeature)
 	f.telegram.RegisterCommand("features", f.handleListFeatures)
 	f.telegram.RegisterCommand("feature", f.handleFeatureStatus)
+	f.telegram.RegisterCommand("resume", f.handleResume)
 
 	// Phase-specific commands
 	f.telegram.RegisterCommand("techstack", f.handleSetTechStack)
@@ -100,6 +101,70 @@ func (f *Foreman) handleFeatureStatus(args string) {
 	}
 
 	f.telegram.Send(feature.StatusReport())
+}
+
+func (f *Foreman) handleResume(args string) {
+	featureID := strings.TrimSpace(args)
+	if featureID == "" {
+		f.telegram.Send("Usage: /resume <feature_id>\n\nResumes an interrupted feature from its last phase.")
+		return
+	}
+
+	feature := f.getFeature(featureID)
+	if feature == nil {
+		f.telegram.Send(fmt.Sprintf("Feature `%s` not found", featureID))
+		return
+	}
+
+	ctx := context.Background()
+	phase := feature.GetPhase()
+
+	switch phase {
+	case PhaseIdle:
+		f.telegram.Send(fmt.Sprintf("Resuming `%s` from specification phase...", featureID))
+		go f.runSpecificationPhase(ctx, feature)
+
+	case PhaseAwaitingSpecApproval:
+		f.telegram.Send(fmt.Sprintf("Feature `%s` is awaiting spec approval. Use the approval buttons.", featureID))
+		f.requestSpecApproval(feature)
+
+	case PhaseClarifying:
+		if len(feature.PendingQuestions) > 0 {
+			f.sendClarificationQuestions(feature)
+		} else {
+			f.telegram.Send(fmt.Sprintf("Resuming `%s` from planning phase...", featureID))
+			go f.runPlanningPhase(ctx, feature)
+		}
+
+	case PhaseAwaitingPlanApproval:
+		f.telegram.Send(fmt.Sprintf("Feature `%s` is awaiting plan approval. Use the approval buttons.", featureID))
+		f.requestPlanApproval(feature)
+
+	case PhaseAwaitingTaskApproval:
+		f.telegram.Send(fmt.Sprintf("Feature `%s` is awaiting task approval. Use the approval buttons.", featureID))
+		// Re-parse tasks from feature
+		if len(feature.Tasks) > 0 {
+			f.telegram.Send(fmt.Sprintf("Found %d tasks. Approve to continue.", len(feature.Tasks)))
+		}
+
+	case PhaseImplementing, PhaseReviewing:
+		f.telegram.Send(fmt.Sprintf("Resuming implementation for `%s`...", featureID))
+		go f.runImplementationPhase(ctx, feature)
+
+	case PhaseAwaitingCodeApproval:
+		f.telegram.Send(fmt.Sprintf("Feature `%s` is awaiting code approval. Use the approval buttons.", featureID))
+
+	case PhaseComplete:
+		f.telegram.Send(fmt.Sprintf("Feature `%s` is already complete.", featureID))
+
+	case PhaseFailed:
+		f.telegram.Send(fmt.Sprintf("Feature `%s` has failed. Restarting from specification...", featureID))
+		feature.Phase = PhaseIdle
+		go f.runSpecificationPhase(ctx, feature)
+
+	default:
+		f.telegram.Send(fmt.Sprintf("Cannot resume feature `%s` from phase: %s", featureID, phase))
+	}
 }
 
 func (f *Foreman) handleSetTechStack(args string) {
@@ -397,11 +462,12 @@ func (f *Foreman) handleHelp(args string) {
 /newfeature <name> | <description> - Start new feature
 /features - List all features
 /feature <id> - Show feature status
+/resume <id> - Resume interrupted feature
 /techstack <id> <stack> - Set tech stack
 /answer <id> Q1: ans1, Q2: ans2 - Answer clarifications
 /constitution <principles> - Set project principles
 
-*Legacy Commands:*
+*Other Commands:*
 /assign <agent> <spec> - Create task directly
 /cancel <id> - Cancel task or feature
 /status - Show all active work
