@@ -1,0 +1,55 @@
+# Foreman Configuration Example
+# Copy this file to foreman.yaml and customize for your project
+
+# Repository configuration
+repo:
+  # Path to the repository to manage
+  path: /path/to/your/project
+  # Git remote name
+  remote: origin
+  # Main branch name
+  main_branch: main
+
+# Telegram bot configuration
+# Set these via environment variables for security
+telegram:
+  token: ${TELEGRAM_BOT_TOKEN}
+  chat_id: ${TELEGRAM_CHAT_ID}
+
+# Agent configuration
+agents:
+  claude-code:
+    enabled: true
+    timeout: 30m
+    priority: 1
+  codex:
+    enabled: false
+    timeout: 30m
+    priority: 2
+
+# Code review configuration
+review:
+  tools:
+    # Enable CodeRabbit for AI-powered review
+    coderabbit: false
+    # Linters to run (empty array to disable)
+    linters:
+      - eslint
+  # Use LLM (Claude) to synthesize review results
+  use_llm: true
+  # Maximum retries for failed tasks
+  max_retries: 2
+
+# Concurrency settings
+concurrency:
+  # Maximum parallel tasks
+  max_tasks: 3
+  # Timeout for individual tasks
+  task_timeout: 30m
+
+# Default agent for new tasks
+default_agent: claude-code
+
+# Default tech stack description for planning phase
+# Leave empty to let the planner infer from codebase
+default_tech_stack: ""
