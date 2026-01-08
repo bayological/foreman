@@ -10,14 +10,16 @@ import (
 )
 
 type Bot struct {
-	api       *tgbotapi.BotAPI
-	chatID    int64
-	commands  map[string]CommandHandler
-	callbacks map[string]CallbackHandler
+	api            *tgbotapi.BotAPI
+	chatID         int64
+	commands       map[string]CommandHandler
+	callbacks      map[string]CallbackHandler
+	messageHandler MessageHandler
 }
 
 type CommandHandler func(args string)
 type CallbackHandler func(data string)
+type MessageHandler func(text string)
 
 func NewBot(token string, chatID int64) (*Bot, error) {
 	api, err := tgbotapi.NewBotAPI(token)
@@ -39,6 +41,10 @@ func (b *Bot) RegisterCommand(name string, handler CommandHandler) {
 
 func (b *Bot) RegisterCallback(prefix string, handler CallbackHandler) {
 	b.callbacks[prefix] = handler
+}
+
+func (b *Bot) RegisterMessageHandler(handler MessageHandler) {
+	b.messageHandler = handler
 }
 
 func (b *Bot) Listen(ctx context.Context) {
@@ -98,6 +104,12 @@ func (b *Bot) handleUpdate(update tgbotapi.Update) {
 		} else {
 			b.Send(fmt.Sprintf("Unknown command: /%s\nUse /help to see available commands", cmd))
 		}
+		return
+	}
+
+	// Handle plain text messages (for feedback)
+	if update.Message != nil && update.Message.Text != "" && b.messageHandler != nil {
+		b.messageHandler(update.Message.Text)
 	}
 }
 

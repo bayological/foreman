@@ -30,6 +30,17 @@ type Foreman struct {
 	active map[string]context.CancelFunc
 	mu     sync.RWMutex
 	sem    chan struct{}
+
+	// Pending feedback tracking
+	pendingFeedback   *PendingFeedback
+	pendingFeedbackMu sync.RWMutex
+}
+
+// PendingFeedback tracks when we're waiting for feedback text from the user
+type PendingFeedback struct {
+	FeatureID string
+	Phase     string // "spec", "plan", "tasks", "code"
+	TaskID    string // only for code phase
 }
 
 func New(cfg *Config) (*Foreman, error) {
@@ -413,20 +424,21 @@ func (f *Foreman) runImplementationPhase(ctx context.Context, feature *Feature) 
 		feature.ID, len(feature.Tasks),
 	))
 
-	// Queue all parallel tasks and the first sequential task
-	// Sequential tasks will be queued one at a time via approveFeatureCode
-	parallelQueued := false
+	// Queue all parallel tasks first
 	for _, task := range feature.Tasks {
 		if task.IsParallel {
+			task.Status = StatusPending
 			f.taskQueue <- task
-			parallelQueued = true
 		}
 	}
 
-	// If no parallel tasks, start with the first task
-	if !parallelQueued {
-		if task := feature.NextTask(); task != nil {
+	// Queue the first sequential task (non-parallel)
+	// Subsequent sequential tasks will be queued one at a time via approveFeatureCode
+	for _, task := range feature.Tasks {
+		if !task.IsParallel && task.Status == StatusPending {
+			feature.CurrentTask = task
 			f.taskQueue <- task
+			break
 		}
 	}
 }
