@@ -48,9 +48,20 @@
 - [x] Add CodeRabbit enable/disable toggle
 - [x] Add `/resume` command for interrupted features
 
+### Phase 9: Unit Tests
+- [x] Add `internal/validation/validation_test.go` - branch name, UUID, error sanitization
+- [x] Add `internal/foreman/workflow_test.go` - phase transitions, info
+- [x] Add `internal/foreman/feature_test.go` - lifecycle, progress, tasks
+- [x] Add `internal/foreman/task_test.go` - creation, context, metadata
+- [x] Add `internal/speckit/parser_test.go` - spec, plan, tasks parsing
+- [x] Add `internal/storage/storage_test.go` - CRUD, persistence
+- [x] Add `internal/tools/runner_test.go` - command execution
+- [x] Verify: `go test ./...`
+
 ## Build Status
 
 All components successfully implemented and verified with `go build ./...`
+All tests passing with `go test ./...`
 
 ## Summary
 
