@@ -41,6 +41,7 @@ func (f *Foreman) registerHandlers() {
 	f.telegram.RegisterCallback("approve_code", f.handleApproveCode)
 	f.telegram.RegisterCallback("reject_code", f.handleRejectCode)
 	f.telegram.RegisterCallback("request_changes", f.handleRequestChanges)
+	f.telegram.RegisterCallback("retry", f.handleRetry)
 }
 
 // Feature lifecycle handlers
@@ -201,6 +202,35 @@ func (f *Foreman) handleRejectCode(data string) {
 func (f *Foreman) handleRequestChanges(data string) {
 	featureID := strings.TrimPrefix(data, "request_changes:")
 	f.telegram.Send(fmt.Sprintf("Please reply with specific changes needed for feature `%s`:", featureID))
+}
+
+func (f *Foreman) handleRetry(data string) {
+	taskID := strings.TrimPrefix(data, "retry:")
+	f.telegram.Send(fmt.Sprintf("Retrying task `%s`...", taskID))
+
+	// Find the task and re-queue it
+	f.featuresMu.RLock()
+	var targetTask *Task
+	for _, feature := range f.features {
+		for _, task := range feature.Tasks {
+			if task.ID == taskID {
+				targetTask = task
+				break
+			}
+		}
+		if targetTask != nil {
+			break
+		}
+	}
+	f.featuresMu.RUnlock()
+
+	if targetTask != nil {
+		targetTask.Attempt = 0
+		targetTask.Status = StatusPending
+		f.taskQueue <- targetTask
+	} else {
+		f.telegram.Send(fmt.Sprintf("Task `%s` not found", taskID))
+	}
 }
 
 // Legacy handlers (still supported for backward compatibility)
