@@ -120,8 +120,35 @@ func (f *Foreman) Run(ctx context.Context) error {
 	f.telegram.Send("Ready! Use /newfeature to start a new feature.")
 
 	<-ctx.Done()
-	f.telegram.Send("Foreman shutting down")
+
+	// Graceful shutdown: save all features
+	f.shutdown()
+
 	return ctx.Err()
+}
+
+// shutdown saves all features and cancels active tasks
+func (f *Foreman) shutdown() {
+	log.Println("Graceful shutdown: saving features...")
+
+	// Cancel all active tasks
+	f.mu.Lock()
+	for id, cancel := range f.active {
+		log.Printf("Cancelling task %s", id)
+		cancel()
+	}
+	f.mu.Unlock()
+
+	// Save all features to storage
+	f.featuresMu.RLock()
+	for _, feature := range f.features {
+		f.saveFeatureToStorage(feature)
+	}
+	count := len(f.features)
+	f.featuresMu.RUnlock()
+
+	log.Printf("Saved %d features to storage", count)
+	f.telegram.Send(fmt.Sprintf("Foreman shutting down. Saved %d features.", count))
 }
 
 func (f *Foreman) taskProcessor(ctx context.Context) {
