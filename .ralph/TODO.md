@@ -32,20 +32,36 @@
 - [x] Update `configs/foreman.yaml`
 - [x] Final build: `go build ./...`
 
+### Phase 7: Additional Improvements
+- [x] Add sample config file `configs/foreman.yaml.example`
+- [x] Add missing Git repo operations (GetCurrentBranch, HasUncommittedChanges, etc.)
+- [x] Make test runner configurable in reviewer
+- [x] Add retry callback handler for escalations
+- [x] Fix task sequencing for parallel vs sequential tasks
+- [x] Add feedback handler for rejected phases
+- [x] Add /constitution command for project principles
+- [x] Add proper phase transitions during task review
+
 ## Build Status
 
 All components successfully implemented and verified with `go build ./...`
 
 ## Summary
 
-The SpecKit integration is complete. The following functionality is now available:
+The Foreman multi-agent orchestrator is complete. The following functionality is available:
 
-### New Telegram Commands:
+### Telegram Commands:
 - `/newfeature <name> | <description>` - Start new feature workflow
 - `/features` - List all active features
 - `/feature <id>` - Show feature status
 - `/techstack <id> <stack>` - Set tech stack for feature
 - `/answer <id> Q1: ans, Q2: ans` - Answer clarification questions
+- `/constitution <principles>` - Set project governing principles
+- `/assign <agent> <spec>` - Direct task assignment (legacy)
+- `/cancel <id>` - Cancel task or feature
+- `/status` - Show all active work
+- `/agents` - List available agents
+- `/help` - Show help message
 
 ### Workflow Phases:
 1. **Specify** - Creates feature specification via SpecKit
@@ -61,3 +77,16 @@ The SpecKit integration is complete. The following functionality is now availabl
 - Plan: Approve/Request Changes
 - Tasks: Approve/Request Changes
 - Code: Approve & Merge/Request Changes/Reject
+
+### Task Types:
+- **Sequential tasks** - Run one at a time, wait for approval between each
+- **Parallel tasks** - Marked with `[P]`, run concurrently
+
+### Feedback Handling:
+- When a phase is rejected, user can type feedback
+- Feedback is captured and used to re-run the phase with context
+
+### Configuration:
+- Configurable test command for reviews
+- Configurable linters
+- Default agent and tech stack settings
