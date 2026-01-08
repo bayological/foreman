@@ -91,8 +91,11 @@ func (r *Reviewer) Review(ctx context.Context, req *ReviewRequest) (*ReviewResul
 		}
 	}
 
-	// Get diff
-	diff, _ := r.getDiff(ctx, req.WorktreePath, req.BaseBranch, req.Branch)
+	// Get diff (best effort - don't fail if diff can't be retrieved)
+	diff, diffErr := r.getDiff(ctx, req.WorktreePath, req.BaseBranch, req.Branch)
+	if diffErr != nil {
+		diff = fmt.Sprintf("(diff unavailable: %v)", diffErr)
+	}
 
 	// If LLM review enabled, use Claude to synthesize
 	if r.useLLM {

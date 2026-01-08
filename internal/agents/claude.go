@@ -80,6 +80,9 @@ func (c *ClaudeCode) Execute(ctx context.Context, task *Task) (*TaskResult, erro
 			output.WriteString(msg.Content)
 		}
 	}
+	if scanErr := scanner.Err(); scanErr != nil {
+		return nil, fmt.Errorf("error reading stdout: %w", scanErr)
+	}
 
 	// Collect stderr
 	var errOutput strings.Builder
@@ -88,6 +91,7 @@ func (c *ClaudeCode) Execute(ctx context.Context, task *Task) (*TaskResult, erro
 		errOutput.WriteString(errScanner.Text())
 		errOutput.WriteString("\n")
 	}
+	// Ignore stderr scanner errors - it's supplementary info
 
 	err = cmd.Wait()
 	duration := time.Since(start)
@@ -124,6 +128,11 @@ func (c *ClaudeCode) Review(ctx context.Context, prompt string, workDir string) 
 		return "", fmt.Errorf("failed to get stdout: %w", err)
 	}
 
+	stderr, err := cmd.StderrPipe()
+	if err != nil {
+		return "", fmt.Errorf("failed to get stderr: %w", err)
+	}
+
 	if err := cmd.Start(); err != nil {
 		return "", fmt.Errorf("failed to start claude: %w", err)
 	}
@@ -140,8 +149,23 @@ func (c *ClaudeCode) Review(ctx context.Context, prompt string, workDir string) 
 			output.WriteString(msg.Content)
 		}
 	}
+	if scanErr := scanner.Err(); scanErr != nil {
+		return "", fmt.Errorf("error reading stdout: %w", scanErr)
+	}
+
+	// Collect stderr for error reporting
+	var errOutput strings.Builder
+	errScanner := bufio.NewScanner(stderr)
+	for errScanner.Scan() {
+		errOutput.WriteString(errScanner.Text())
+		errOutput.WriteString("\n")
+	}
 
 	if err := cmd.Wait(); err != nil {
+		errMsg := errOutput.String()
+		if errMsg != "" {
+			return "", fmt.Errorf("claude review failed: %w\nstderr: %s", err, errMsg)
+		}
 		return "", fmt.Errorf("claude review failed: %w", err)
 	}
 
