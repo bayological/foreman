@@ -19,9 +19,10 @@ type Reviewer struct {
 }
 
 type ReviewerConfig struct {
-	UseLLM      bool
-	TestCommand string
-	Linters     []string
+	UseLLM         bool
+	UseCodeRabbit  bool
+	TestCommand    string
+	Linters        []string
 }
 
 func NewReviewer(repoPath string, cfg ReviewerConfig) *Reviewer {
@@ -30,10 +31,13 @@ func NewReviewer(repoPath string, cfg ReviewerConfig) *Reviewer {
 		testCmd = "npm test" // default
 	}
 
+	coderabbit := tools.NewCodeRabbit()
+	coderabbit.SetEnabled(cfg.UseCodeRabbit)
+
 	return &Reviewer{
 		repoPath:    repoPath,
 		claude:      NewClaudeCodeReviewer(repoPath),
-		coderabbit:  tools.NewCodeRabbit(),
+		coderabbit:  coderabbit,
 		linter:      tools.NewLinter(cfg.Linters...),
 		useLLM:      cfg.UseLLM,
 		testCommand: testCmd,
