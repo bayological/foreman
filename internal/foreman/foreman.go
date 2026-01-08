@@ -710,6 +710,75 @@ func (f *Foreman) approveFeatureCode(ctx context.Context, featureID string) {
 	f.telegram.Send(fmt.Sprintf("Waiting for remaining parallel tasks in feature `%s`...", featureID))
 }
 
+// Pending feedback management
+
+func (f *Foreman) setPendingFeedback(featureID, phase, taskID string) {
+	f.pendingFeedbackMu.Lock()
+	defer f.pendingFeedbackMu.Unlock()
+	f.pendingFeedback = &PendingFeedback{
+		FeatureID: featureID,
+		Phase:     phase,
+		TaskID:    taskID,
+	}
+}
+
+func (f *Foreman) clearPendingFeedback() *PendingFeedback {
+	f.pendingFeedbackMu.Lock()
+	defer f.pendingFeedbackMu.Unlock()
+	feedback := f.pendingFeedback
+	f.pendingFeedback = nil
+	return feedback
+}
+
+func (f *Foreman) handleFeedbackMessage(text string) {
+	feedback := f.clearPendingFeedback()
+	if feedback == nil {
+		// No pending feedback, ignore the message
+		return
+	}
+
+	feature := f.getFeature(feedback.FeatureID)
+	if feature == nil {
+		f.telegram.Send(fmt.Sprintf("Feature `%s` not found", feedback.FeatureID))
+		return
+	}
+
+	ctx := context.Background()
+
+	switch feedback.Phase {
+	case "spec":
+		f.telegram.Send(fmt.Sprintf("Feedback received for spec. Re-running specification for `%s`...", feedback.FeatureID))
+		feature.Constraints = text
+		go f.runSpecificationPhase(ctx, feature)
+
+	case "plan":
+		f.telegram.Send(fmt.Sprintf("Feedback received for plan. Re-running planning for `%s`...", feedback.FeatureID))
+		feature.Constraints = text
+		go f.runPlanningPhase(ctx, feature)
+
+	case "tasks":
+		f.telegram.Send(fmt.Sprintf("Feedback received for tasks. Re-generating tasks for `%s`...", feedback.FeatureID))
+		feature.Constraints = text
+		go f.runTaskingPhase(ctx, feature)
+
+	case "code":
+		if feedback.TaskID != "" {
+			// Find the task and add feedback as context
+			for _, task := range feature.Tasks {
+				if task.ID == feedback.TaskID {
+					f.telegram.Send(fmt.Sprintf("Feedback received for task `%s`. Re-queuing with feedback...", feedback.TaskID))
+					task.AddContext(fmt.Sprintf("User Feedback:\n%s", text))
+					task.Attempt = 0
+					task.Status = StatusPending
+					f.taskQueue <- task
+					return
+				}
+			}
+		}
+		f.telegram.Send(fmt.Sprintf("Task `%s` not found", feedback.TaskID))
+	}
+}
+
 func truncate(s string, max int) string {
 	if len(s) <= max {
 		return s
