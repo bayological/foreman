@@ -42,6 +42,9 @@ func (f *Foreman) registerHandlers() {
 	f.telegram.RegisterCallback("reject_code", f.handleRejectCode)
 	f.telegram.RegisterCallback("request_changes", f.handleRequestChanges)
 	f.telegram.RegisterCallback("retry", f.handleRetry)
+
+	// Register message handler for feedback text
+	f.telegram.RegisterMessageHandler(f.handleFeedbackMessage)
 }
 
 // Feature lifecycle handlers
@@ -159,7 +162,8 @@ func (f *Foreman) handleApproveSpec(data string) {
 
 func (f *Foreman) handleRejectSpec(data string) {
 	featureID := strings.TrimPrefix(data, "reject_spec:")
-	f.telegram.Send(fmt.Sprintf("Spec rejected for `%s`. Please provide feedback with /answer or restart with /newfeature", featureID))
+	f.setPendingFeedback(featureID, "spec", "")
+	f.telegram.Send(fmt.Sprintf("Spec rejected for `%s`. Please type your feedback:", featureID))
 }
 
 func (f *Foreman) handleApprovePlan(data string) {
@@ -170,7 +174,8 @@ func (f *Foreman) handleApprovePlan(data string) {
 
 func (f *Foreman) handleRejectPlan(data string) {
 	featureID := strings.TrimPrefix(data, "reject_plan:")
-	f.telegram.Send(fmt.Sprintf("Plan rejected for `%s`. Please provide feedback for re-planning.", featureID))
+	f.setPendingFeedback(featureID, "plan", "")
+	f.telegram.Send(fmt.Sprintf("Plan rejected for `%s`. Please type your feedback:", featureID))
 }
 
 func (f *Foreman) handleApproveTasks(data string) {
@@ -181,7 +186,8 @@ func (f *Foreman) handleApproveTasks(data string) {
 
 func (f *Foreman) handleRejectTasks(data string) {
 	featureID := strings.TrimPrefix(data, "reject_tasks:")
-	f.telegram.Send(fmt.Sprintf("Tasks rejected for `%s`. Please provide feedback for re-tasking.", featureID))
+	f.setPendingFeedback(featureID, "tasks", "")
+	f.telegram.Send(fmt.Sprintf("Tasks rejected for `%s`. Please type your feedback:", featureID))
 }
 
 func (f *Foreman) handleApproveCode(data string) {
@@ -201,7 +207,13 @@ func (f *Foreman) handleRejectCode(data string) {
 
 func (f *Foreman) handleRequestChanges(data string) {
 	featureID := strings.TrimPrefix(data, "request_changes:")
-	f.telegram.Send(fmt.Sprintf("Please reply with specific changes needed for feature `%s`:", featureID))
+	feature := f.getFeature(featureID)
+	var taskID string
+	if feature != nil && feature.CurrentTask != nil {
+		taskID = feature.CurrentTask.ID
+	}
+	f.setPendingFeedback(featureID, "code", taskID)
+	f.telegram.Send(fmt.Sprintf("Please type your requested changes for feature `%s`:", featureID))
 }
 
 func (f *Foreman) handleRetry(data string) {
@@ -382,4 +394,73 @@ func (f *Foreman) handleHelp(args string) {
 7. Approve - Human approval`
 
 	f.telegram.Send(help)
+}
+
+// Feedback handling
+
+func (f *Foreman) setPendingFeedback(featureID, phase, taskID string) {
+	f.pendingFeedbackMu.Lock()
+	defer f.pendingFeedbackMu.Unlock()
+	f.pendingFeedback = &PendingFeedback{
+		FeatureID: featureID,
+		Phase:     phase,
+		TaskID:    taskID,
+	}
+}
+
+func (f *Foreman) clearPendingFeedback() *PendingFeedback {
+	f.pendingFeedbackMu.Lock()
+	defer f.pendingFeedbackMu.Unlock()
+	feedback := f.pendingFeedback
+	f.pendingFeedback = nil
+	return feedback
+}
+
+func (f *Foreman) handleFeedbackMessage(text string) {
+	feedback := f.clearPendingFeedback()
+	if feedback == nil {
+		// No pending feedback, ignore the message
+		return
+	}
+
+	feature := f.getFeature(feedback.FeatureID)
+	if feature == nil {
+		f.telegram.Send(fmt.Sprintf("Feature `%s` not found", feedback.FeatureID))
+		return
+	}
+
+	ctx := context.Background()
+
+	switch feedback.Phase {
+	case "spec":
+		f.telegram.Send(fmt.Sprintf("Feedback received for spec. Re-running specification for `%s`...", feedback.FeatureID))
+		feature.Constraints = text
+		go f.runSpecificationPhase(ctx, feature)
+
+	case "plan":
+		f.telegram.Send(fmt.Sprintf("Feedback received for plan. Re-running planning for `%s`...", feedback.FeatureID))
+		feature.Constraints = text
+		go f.runPlanningPhase(ctx, feature)
+
+	case "tasks":
+		f.telegram.Send(fmt.Sprintf("Feedback received for tasks. Re-generating tasks for `%s`...", feedback.FeatureID))
+		feature.Constraints = text
+		go f.runTaskingPhase(ctx, feature)
+
+	case "code":
+		if feedback.TaskID != "" {
+			// Find the task and add feedback as context
+			for _, task := range feature.Tasks {
+				if task.ID == feedback.TaskID {
+					task.AddContext(fmt.Sprintf("User feedback:\n%s", text))
+					task.Status = StatusPending
+					task.Attempt = 0
+					f.telegram.Send(fmt.Sprintf("Feedback received. Re-running task `%s`...", task.ID))
+					f.taskQueue <- task
+					return
+				}
+			}
+		}
+		f.telegram.Send(fmt.Sprintf("Task not found for feedback in feature `%s`", feedback.FeatureID))
+	}
 }
