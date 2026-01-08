@@ -10,6 +10,7 @@ import (
 	"github.com/bayological/foreman/internal/agents"
 	"github.com/bayological/foreman/internal/git"
 	"github.com/bayological/foreman/internal/speckit"
+	"github.com/bayological/foreman/internal/storage"
 	"github.com/bayological/foreman/internal/telegram"
 	"github.com/bayological/foreman/internal/validation"
 )
@@ -21,6 +22,7 @@ type Foreman struct {
 	reviewer *agents.Reviewer
 	telegram *telegram.Bot
 	speckit  *speckit.SpecKit
+	storage  *storage.FileStorage
 
 	taskQueue chan *Task
 
@@ -540,6 +542,11 @@ func (f *Foreman) executeTask(ctx context.Context, task *Task) {
 
 	// Review
 	task.Status = StatusReview
+	if task.FeatureID != "" {
+		if feature := f.getFeature(task.FeatureID); feature != nil {
+			feature.Transition(PhaseReviewing, fmt.Sprintf("Reviewing task %s", task.ID), "foreman")
+		}
+	}
 	f.telegram.Send(fmt.Sprintf("Reviewing `%s`...", task.ID))
 
 	review, err := f.reviewer.Review(taskCtx, &agents.ReviewRequest{
@@ -564,6 +571,9 @@ func (f *Foreman) handleReview(task *Task, result *agents.TaskResult, review *ag
 
 		// Check if this task belongs to a feature
 		if task.FeatureID != "" {
+			if feature := f.getFeature(task.FeatureID); feature != nil {
+				feature.Transition(PhaseAwaitingCodeApproval, fmt.Sprintf("Task %s awaiting approval", task.ID), "foreman")
+			}
 			f.telegram.RequestPhaseApproval(task.FeatureID, "code", review.Summary, fmt.Sprintf("Task: `%s`", task.ID))
 		} else {
 			f.telegram.RequestApproval(task.ID, review.Summary, task.PRURL("https://github.com/owner/repo"))
