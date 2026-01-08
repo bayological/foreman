@@ -2,7 +2,7 @@
 
 ## Current State Analysis
 
-The codebase is complete with all core functionality and bug fixes in place.
+The codebase is complete with all core functionality implemented. This document tracks ongoing improvements.
 
 ### Implemented Components:
 - **Core Orchestration** (`internal/foreman/`)
@@ -16,68 +16,49 @@ The codebase is complete with all core functionality and bug fixes in place.
 
 ## Completed Tasks
 
-### 1. Sample Config File [DONE]
-Created `configs/foreman.yaml.example` with documentation.
+### Phase 1-6: Core Implementation [DONE]
+- SpecKit package with CLI integration
+- Feature lifecycle workflow (7 phases)
+- Telegram commands and approval callbacks
+- Git worktree management
+- Agent execution and review
+- State persistence
 
-### 2. Git Repo Methods [DONE]
-Added: GetCurrentBranch, HasUncommittedChanges, CheckoutBranch, CreateBranch, Path, MainBranch.
+### Phase 7: Additional Improvements [DONE]
+- Sample config file
+- Git repo helper methods
+- Configurable test runner
+- Retry callback handler
+- Task sequencing (parallel/sequential)
+- Feedback handler for rejections
+- Feature persistence
+- CodeRabbit/linter integration
+- Improved error handling
 
-### 3. Configurable Test Runner [DONE]
-Added `test_command` to review config, allowing project-specific test commands.
+## In Progress: Enhancement Tasks
 
-### 4. Retry Callback Handler [DONE]
-Added handler for "Retry" button in escalation dialogs.
+### 1. Graceful Shutdown with State Saving
+Save in-progress features on SIGTERM/SIGINT to enable recovery.
 
-### 5. Task Sequencing [DONE]
-Fixed to properly handle parallel vs sequential tasks:
-- Parallel tasks queue immediately
-- Sequential tasks wait for approval before starting next
+### 2. GitHub PR Creation
+After code approval, automatically create a GitHub PR using `gh` CLI.
 
-### 6. Feedback Handler [DONE]
-Added complete feedback capture:
-- Rejection handlers set pending feedback state
-- Next text message is captured as feedback
-- Re-runs appropriate phase with feedback as context
+### 3. Feature Branch Naming
+Change branch naming from feature.Branch to use `feature/<name>` prefix.
 
-### 7. Feature Persistence [DONE]
-Added JSON file-based storage:
-- New `internal/storage/` package
-- Features saved to disk on create, complete, and error
-- Automatic loading on startup
-- Configurable via `storage.path` in config
+### 4. CodeRabbit Enable/Disable
+Respect the `review.tools.coderabbit` config toggle properly.
 
-### 8. CodeRabbit Integration [DONE]
-Improved CodeRabbit and linter handling:
-- Checks if CLI tools are installed before running
-- Graceful skip when tools not available
-- Added support for more linters: golangci-lint, flake8, pylint
-- Better error messages and output formatting
+### 5. Resume Command
+Add `/resume <id>` command to resume interrupted features.
 
-### 9. Improved Error Handling - Tools [DONE]
-Enhanced tools package:
-- Added CommandResult type for detailed output
-- Added CommandAvailable utility function
-- Better stderr/stdout handling
-- FormatCommandError for user-friendly messages
+### 6. Code Review Improvements
+- Track per-task review results
+- Better summary formatting
 
-### 10. SpecKit Error Handling [DONE]
-Fixed several issues:
-- Added scanner error check in RunClaudeCommand
-- Fixed git checkout error handling in Specify method
-- Fixed GetLatestFeatureDir to sort by modification time (not just alphabetical)
-- Removed orphaned CmdImplement constant
+## Future Enhancements (Not Started)
 
-### 11. Agents Error Handling [DONE]
-Fixed critical issues:
-- Added scanner error checks in claude.go Execute and Review methods
-- Added stderr collection to Review method for better error messages
-- Handle diff errors in reviewer instead of ignoring them
-
-## Potential Future Enhancements
-
-1. **PR Creation** - Auto-create GitHub PRs after code approval
-2. **Metrics/Telemetry** - Track task success rates, durations
-3. **Slack Integration** - Alternative to Telegram
-4. **Dashboard** - Web UI for monitoring
-5. **Unit Tests** - Add test coverage for core functionality
-6. **Graceful Shutdown** - Save in-progress features on shutdown
+1. **Metrics/Telemetry** - Track task success rates, durations
+2. **Slack Integration** - Alternative to Telegram
+3. **Dashboard** - Web UI for monitoring
+4. **Unit Tests** - Add test coverage for core functionality
