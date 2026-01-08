@@ -1,7 +1,7 @@
 # Foreman Implementation TODO
 
 ## Current Status
-The codebase is **functional and complete** with all core features implemented.
+The codebase is **complete** with all core features and comprehensive test coverage.
 
 ## Completed
 - [x] Core orchestration (internal/foreman/)
@@ -12,16 +12,22 @@ The codebase is **functional and complete** with all core features implemented.
 - [x] Review tools (CodeRabbit, linters)
 - [x] State persistence
 - [x] Unit tests for all packages
+- [x] Cleanup unused files (telegram/handlers.go, pkg/config)
+- [x] Integration tests for foreman core
 
-## In Progress
-- [ ] Add integration tests for end-to-end workflow
-
-## Cleanup Tasks
-- [ ] Remove unused telegram/handlers.go (handlers are in foreman/handlers.go)
-- [ ] Remove or update pkg/config/config.go (duplicate/unused)
+## Test Coverage
+All packages now have test coverage:
+- `internal/validation` - Branch names, UUIDs, error sanitization
+- `internal/foreman` - Workflow, features, tasks, handlers
+- `internal/speckit` - Parser tests
+- `internal/storage` - File storage operations
+- `internal/tools` - Command runner tests
+- `internal/git` - Repo operations, worktree security
+- `internal/telegram` - Bot registration, authorization
+- `internal/agents` - Agent types, claude, codex
 
 ## Future Enhancements
-1. Metrics/Telemetry - Track task success rates, durations
-2. Slack Integration - Alternative to Telegram
-3. Dashboard - Web UI for monitoring
-4. More integration tests
+1. **Metrics/Telemetry** - Track task success rates, durations
+2. **Slack Integration** - Alternative to Telegram
+3. **Dashboard** - Web UI for monitoring
+4. **E2E Integration Tests** - Full workflow tests with mocked external services
