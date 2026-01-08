@@ -50,6 +50,12 @@ concurrency:
   # Timeout for individual tasks
   task_timeout: 30m
 
+# Storage configuration for feature persistence
+storage:
+  # Path to the features.json file for persistence
+  # Leave empty to disable persistence (features lost on restart)
+  path: ""
+
 # Default agent for new tasks
 default_agent: claude-code
 

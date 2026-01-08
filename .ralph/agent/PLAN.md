@@ -12,6 +12,7 @@ The codebase is complete with all core functionality in place.
 - **SpecKit** (`internal/speckit/`)
 - **Tools** (`internal/tools/`)
 - **Validation** (`internal/validation/`)
+- **Storage** (`internal/storage/`) - NEW
 
 ## Completed Tasks
 
@@ -38,10 +39,31 @@ Added complete feedback capture:
 - Next text message is captured as feedback
 - Re-runs appropriate phase with feedback as context
 
+### 7. Feature Persistence [DONE]
+Added JSON file-based storage:
+- New `internal/storage/` package
+- Features saved to disk on create, complete, and error
+- Automatic loading on startup
+- Configurable via `storage.path` in config
+
+### 8. CodeRabbit Integration [DONE]
+Improved CodeRabbit and linter handling:
+- Checks if CLI tools are installed before running
+- Graceful skip when tools not available
+- Added support for more linters: golangci-lint, flake8, pylint
+- Better error messages and output formatting
+
+### 9. Improved Error Handling [DONE]
+Enhanced tools package:
+- Added CommandResult type for detailed output
+- Added CommandAvailable utility function
+- Better stderr/stdout handling
+- FormatCommandError for user-friendly messages
+
 ## Potential Future Enhancements
 
-1. **Feature Persistence** - Store features to disk for recovery after restart
+1. **PR Creation** - Auto-create GitHub PRs after code approval
 2. **Metrics/Telemetry** - Track task success rates, durations
-3. **PR Creation** - Auto-create GitHub PRs after code approval
-4. **Slack Integration** - Alternative to Telegram
-5. **Dashboard** - Web UI for monitoring
+3. **Slack Integration** - Alternative to Telegram
+4. **Dashboard** - Web UI for monitoring
+5. **Unit Tests** - Add test coverage for core functionality
