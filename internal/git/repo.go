@@ -77,3 +77,46 @@ func (r *Repo) Path() string {
 func (r *Repo) MainBranch() string {
 	return r.mainBranch
 }
+
+// PRResult contains information about a created pull request.
+type PRResult struct {
+	URL    string
+	Number int
+}
+
+// CreatePullRequest creates a GitHub PR using the gh CLI.
+func (r *Repo) CreatePullRequest(branch, title, body string) (*PRResult, error) {
+	// Check if gh is available
+	if _, err := exec.LookPath("gh"); err != nil {
+		return nil, fmt.Errorf("gh CLI not found: %w", err)
+	}
+
+	// Create the PR
+	cmd := exec.Command("gh", "pr", "create",
+		"--head", branch,
+		"--base", r.mainBranch,
+		"--title", title,
+		"--body", body,
+	)
+	cmd.Dir = r.path
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return nil, fmt.Errorf("gh pr create failed: %s: %w", output, err)
+	}
+
+	// Output contains the PR URL
+	url := strings.TrimSpace(string(output))
+
+	return &PRResult{URL: url}, nil
+}
+
+// GetPullRequestURL returns the URL for an existing PR on the given branch.
+func (r *Repo) GetPullRequestURL(branch string) (string, error) {
+	cmd := exec.Command("gh", "pr", "view", branch, "--json", "url", "-q", ".url")
+	cmd.Dir = r.path
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return "", fmt.Errorf("gh pr view failed: %s: %w", output, err)
+	}
+	return strings.TrimSpace(string(output)), nil
+}
