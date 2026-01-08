@@ -86,11 +86,17 @@ func (s *SpecKit) RunClaudeCommand(ctx context.Context, command string, args str
 			Content string `json:"content,omitempty"`
 		}
 		if err := json.Unmarshal([]byte(line), &msg); err != nil {
+			// Skip lines that aren't valid JSON (e.g., debug output)
 			continue
 		}
 		if msg.Type == "assistant" && msg.Content != "" {
 			output.WriteString(msg.Content)
 		}
+	}
+
+	// Check for scanner errors
+	if scanErr := scanner.Err(); scanErr != nil {
+		return nil, fmt.Errorf("error reading claude output: %w", scanErr)
 	}
 
 	cmdErr := cmd.Wait()
@@ -120,7 +126,9 @@ func (s *SpecKit) Constitution(ctx context.Context, principles string) (*Command
 // Specify creates feature specification
 func (s *SpecKit) Specify(ctx context.Context, description string, featureBranch string) (*CommandResult, error) {
 	// Checkout the feature branch first
-	exec.CommandContext(ctx, "git", "-C", s.repoPath, "checkout", "-B", featureBranch).Run()
+	if err := exec.CommandContext(ctx, "git", "-C", s.repoPath, "checkout", "-B", featureBranch).Run(); err != nil {
+		return nil, fmt.Errorf("failed to checkout branch %s: %w", featureBranch, err)
+	}
 
 	return s.RunClaudeCommand(ctx, "speckit.specify", description, s.repoPath)
 }
@@ -146,6 +154,7 @@ func (s *SpecKit) GetSpecsDir() string {
 }
 
 // GetLatestFeatureDir returns the most recent feature directory
+// Directories are sorted by modification time, most recent first
 func (s *SpecKit) GetLatestFeatureDir() string {
 	specsDir := s.GetSpecsDir()
 
@@ -154,14 +163,25 @@ func (s *SpecKit) GetLatestFeatureDir() string {
 		return ""
 	}
 
-	var latest string
+	var latestDir string
+	var latestTime time.Time
+
 	for _, entry := range entries {
-		if entry.IsDir() {
-			latest = filepath.Join(specsDir, entry.Name())
+		if !entry.IsDir() {
+			continue
+		}
+		dirPath := filepath.Join(specsDir, entry.Name())
+		info, err := entry.Info()
+		if err != nil {
+			continue
+		}
+		if latestDir == "" || info.ModTime().After(latestTime) {
+			latestDir = dirPath
+			latestTime = info.ModTime()
 		}
 	}
 
-	return latest
+	return latestDir
 }
 
 // GetFeatureDir returns the directory for a specific feature ID prefix

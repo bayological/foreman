@@ -9,7 +9,6 @@ const (
 	CmdClarify      Command = "speckit.clarify"
 	CmdPlan         Command = "speckit.plan"
 	CmdTasks        Command = "speckit.tasks"
-	CmdImplement    Command = "speckit.implement"
 )
 
 type CommandInfo struct {
