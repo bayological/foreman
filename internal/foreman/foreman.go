@@ -64,7 +64,11 @@ func New(cfg *Config) (*Foreman, error) {
 	}
 
 	// Initialize reviewer
-	f.reviewer = agents.NewReviewer(cfg.Repo.Path, cfg.Review.UseLLM)
+	f.reviewer = agents.NewReviewer(cfg.Repo.Path, agents.ReviewerConfig{
+		UseLLM:      cfg.Review.UseLLM,
+		TestCommand: cfg.Review.Tools.TestCommand,
+		Linters:     cfg.Review.Tools.Linters,
+	})
 
 	return f, nil
 }

@@ -35,6 +35,9 @@ review:
     # Linters to run (empty array to disable)
     linters:
       - eslint
+    # Test command to run during review (default: "npm test")
+    # Examples: "go test ./...", "pytest", "cargo test"
+    test_command: "npm test"
   # Use LLM (Claude) to synthesize review results
   use_llm: true
   # Maximum retries for failed tasks

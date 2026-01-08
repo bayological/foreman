@@ -47,8 +47,9 @@ type ReviewConfig struct {
 }
 
 type ReviewToolsConfig struct {
-	CodeRabbit bool     `yaml:"coderabbit"`
-	Linters    []string `yaml:"linters"`
+	CodeRabbit  bool     `yaml:"coderabbit"`
+	Linters     []string `yaml:"linters"`
+	TestCommand string   `yaml:"test_command"`
 }
 
 type ConcurrencyConfig struct {

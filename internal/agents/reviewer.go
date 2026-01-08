@@ -10,20 +10,33 @@ import (
 )
 
 type Reviewer struct {
-	repoPath   string
-	claude     *ClaudeCode
-	coderabbit *tools.CodeRabbit
-	linter     *tools.Linter
-	useLLM     bool
+	repoPath    string
+	claude      *ClaudeCode
+	coderabbit  *tools.CodeRabbit
+	linter      *tools.Linter
+	useLLM      bool
+	testCommand string
 }
 
-func NewReviewer(repoPath string, useLLM bool) *Reviewer {
+type ReviewerConfig struct {
+	UseLLM      bool
+	TestCommand string
+	Linters     []string
+}
+
+func NewReviewer(repoPath string, cfg ReviewerConfig) *Reviewer {
+	testCmd := cfg.TestCommand
+	if testCmd == "" {
+		testCmd = "npm test" // default
+	}
+
 	return &Reviewer{
-		repoPath:   repoPath,
-		claude:     NewClaudeCodeReviewer(repoPath),
-		coderabbit: tools.NewCodeRabbit(),
-		linter:     tools.NewLinter(),
-		useLLM:     useLLM,
+		repoPath:    repoPath,
+		claude:      NewClaudeCodeReviewer(repoPath),
+		coderabbit:  tools.NewCodeRabbit(),
+		linter:      tools.NewLinter(cfg.Linters...),
+		useLLM:      cfg.UseLLM,
+		testCommand: testCmd,
 	}
 }
 
@@ -198,7 +211,12 @@ func (r *Reviewer) toolBasedReview(toolOutputs map[string]string) *ReviewResult 
 }
 
 func (r *Reviewer) runTests(ctx context.Context, workDir string) (string, error) {
-	return tools.RunCommand(ctx, workDir, "npm", "test")
+	// Parse the test command (e.g., "npm test" -> ["npm", "test"])
+	parts := strings.Fields(r.testCommand)
+	if len(parts) == 0 {
+		return "No test command configured", nil
+	}
+	return tools.RunCommand(ctx, workDir, parts[0], parts[1:]...)
 }
 
 func (r *Reviewer) getDiff(ctx context.Context, workDir, base, head string) (string, error) {
