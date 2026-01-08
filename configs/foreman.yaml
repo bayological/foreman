@@ -29,3 +29,6 @@ review:
 concurrency:
   max_tasks: 3
   task_timeout: 30m
+
+default_agent: claude-code
+default_tech_stack: ""
