@@ -16,6 +16,7 @@ func (f *Foreman) registerHandlers() {
 	// Phase-specific commands
 	f.telegram.RegisterCommand("techstack", f.handleSetTechStack)
 	f.telegram.RegisterCommand("answer", f.handleAnswer)
+	f.telegram.RegisterCommand("constitution", f.handleConstitution)
 
 	// Legacy task commands (still supported)
 	f.telegram.RegisterCommand("assign", f.handleAssign)
@@ -150,6 +151,28 @@ func (f *Foreman) handleAnswer(args string) {
 
 	ctx := context.Background()
 	f.AnswerClarification(ctx, featureID, answers)
+}
+
+func (f *Foreman) handleConstitution(args string) {
+	if args == "" {
+		f.telegram.Send("Usage: /constitution <principles>\n\nExample:\n`/constitution Code must have 80% test coverage. Use TypeScript for frontend. Follow REST conventions.`")
+		return
+	}
+
+	ctx := context.Background()
+	f.telegram.Send("Setting project constitution...")
+
+	result, err := f.speckit.Constitution(ctx, args)
+	if err != nil {
+		f.telegram.Send(fmt.Sprintf("Constitution failed: %v", err))
+		return
+	}
+
+	if result.Success {
+		f.telegram.Send("Project constitution updated successfully.")
+	} else {
+		f.telegram.Send(fmt.Sprintf("Constitution failed: %s", result.Error))
+	}
 }
 
 // Feature workflow approval callbacks
@@ -376,6 +399,7 @@ func (f *Foreman) handleHelp(args string) {
 /feature <id> - Show feature status
 /techstack <id> <stack> - Set tech stack
 /answer <id> Q1: ans1, Q2: ans2 - Answer clarifications
+/constitution <principles> - Set project principles
 
 *Legacy Commands:*
 /assign <agent> <spec> - Create task directly
