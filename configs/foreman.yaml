@@ -1,5 +1,5 @@
 repo:
-  path: /home/somecodebasepath
+  path: /home/bayo/dev/source/pact/pact-web
   remote: origin
   main_branch: main
 

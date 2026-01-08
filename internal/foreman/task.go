@@ -29,6 +29,7 @@ type Task struct {
 	Attempt      int
 	Status       TaskStatus
 	CreatedAt    time.Time
+	FeatureID    string
 	Metadata     map[string]string
 }
 

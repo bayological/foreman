@@ -165,6 +165,62 @@ func (b *Bot) Escalate(taskID, reason, details string) error {
 	return err
 }
 
+// RequestPhaseApproval sends approval request with phase-specific buttons
+func (b *Bot) RequestPhaseApproval(featureID, phase, summary, extra string) error {
+	var keyboard tgbotapi.InlineKeyboardMarkup
+
+	switch phase {
+	case "spec":
+		keyboard = tgbotapi.NewInlineKeyboardMarkup(
+			tgbotapi.NewInlineKeyboardRow(
+				tgbotapi.NewInlineKeyboardButtonData("✅ Approve Spec", fmt.Sprintf("approve_spec:%s", featureID)),
+				tgbotapi.NewInlineKeyboardButtonData("✏️ Request Changes", fmt.Sprintf("reject_spec:%s", featureID)),
+			),
+		)
+	case "plan":
+		keyboard = tgbotapi.NewInlineKeyboardMarkup(
+			tgbotapi.NewInlineKeyboardRow(
+				tgbotapi.NewInlineKeyboardButtonData("✅ Approve Plan", fmt.Sprintf("approve_plan:%s", featureID)),
+				tgbotapi.NewInlineKeyboardButtonData("✏️ Request Changes", fmt.Sprintf("reject_plan:%s", featureID)),
+			),
+		)
+	case "tasks":
+		keyboard = tgbotapi.NewInlineKeyboardMarkup(
+			tgbotapi.NewInlineKeyboardRow(
+				tgbotapi.NewInlineKeyboardButtonData("✅ Approve Tasks", fmt.Sprintf("approve_tasks:%s", featureID)),
+				tgbotapi.NewInlineKeyboardButtonData("✏️ Request Changes", fmt.Sprintf("reject_tasks:%s", featureID)),
+			),
+		)
+	case "code":
+		keyboard = tgbotapi.NewInlineKeyboardMarkup(
+			tgbotapi.NewInlineKeyboardRow(
+				tgbotapi.NewInlineKeyboardButtonData("✅ Approve & Merge", fmt.Sprintf("approve_code:%s", featureID)),
+				tgbotapi.NewInlineKeyboardButtonData("🔄 Request Changes", fmt.Sprintf("request_changes:%s", featureID)),
+			),
+			tgbotapi.NewInlineKeyboardRow(
+				tgbotapi.NewInlineKeyboardButtonData("❌ Reject", fmt.Sprintf("reject_code:%s", featureID)),
+			),
+		)
+	}
+
+	text := fmt.Sprintf("🚦 *Approval Required*\n\nFeature: `%s`\nPhase: %s\n\n%s",
+		featureID,
+		strings.ToUpper(phase),
+		summary,
+	)
+
+	if extra != "" {
+		text += "\n\n" + extra
+	}
+
+	msg := tgbotapi.NewMessage(b.chatID, text)
+	msg.ParseMode = "Markdown"
+	msg.ReplyMarkup = keyboard
+
+	_, err := b.api.Send(msg)
+	return err
+}
+
 func truncate(s string, max int) string {
 	if len(s) <= max {
 		return s

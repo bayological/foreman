@@ -9,11 +9,13 @@ import (
 )
 
 type Config struct {
-	Repo        RepoConfig        `yaml:"repo"`
-	Telegram    TelegramConfig    `yaml:"telegram"`
-	Agents      AgentsConfig      `yaml:"agents"`
-	Review      ReviewConfig      `yaml:"review"`
-	Concurrency ConcurrencyConfig `yaml:"concurrency"`
+	Repo             RepoConfig        `yaml:"repo"`
+	Telegram         TelegramConfig    `yaml:"telegram"`
+	Agents           AgentsConfig      `yaml:"agents"`
+	Review           ReviewConfig      `yaml:"review"`
+	Concurrency      ConcurrencyConfig `yaml:"concurrency"`
+	DefaultAgent     string            `yaml:"default_agent"`
+	DefaultTechStack string            `yaml:"default_tech_stack"`
 }
 
 type RepoConfig struct {
@@ -83,6 +85,9 @@ func LoadConfig(path string) (*Config, error) {
 	}
 	if cfg.Review.MaxRetries == 0 {
 		cfg.Review.MaxRetries = 2
+	}
+	if cfg.DefaultAgent == "" {
+		cfg.DefaultAgent = "claude-code"
 	}
 
 	return &cfg, nil
