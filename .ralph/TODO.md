@@ -42,6 +42,12 @@
 - [x] Add /constitution command for project principles
 - [x] Add proper phase transitions during task review
 
+### Phase 8: Enhancements
+- [x] Add graceful shutdown with state saving
+- [x] Add GitHub PR creation on feature completion
+- [x] Add CodeRabbit enable/disable toggle
+- [x] Add `/resume` command for interrupted features
+
 ## Build Status
 
 All components successfully implemented and verified with `go build ./...`
@@ -54,6 +60,7 @@ The Foreman multi-agent orchestrator is complete. The following functionality is
 - `/newfeature <name> | <description>` - Start new feature workflow
 - `/features` - List all active features
 - `/feature <id>` - Show feature status
+- `/resume <id>` - Resume interrupted feature
 - `/techstack <id> <stack>` - Set tech stack for feature
 - `/answer <id> Q1: ans, Q2: ans` - Answer clarification questions
 - `/constitution <principles>` - Set project governing principles
@@ -88,5 +95,11 @@ The Foreman multi-agent orchestrator is complete. The following functionality is
 
 ### Configuration:
 - Configurable test command for reviews
-- Configurable linters
+- Configurable linters (including CodeRabbit toggle)
 - Default agent and tech stack settings
+- Feature state persistence with JSON storage
+
+### Operational Features:
+- Graceful shutdown saves all features
+- Automatic GitHub PR creation on completion
+- Resume interrupted features after restart
