@@ -14,8 +14,13 @@ type Config struct {
 	Agents           AgentsConfig      `yaml:"agents"`
 	Review           ReviewConfig      `yaml:"review"`
 	Concurrency      ConcurrencyConfig `yaml:"concurrency"`
+	Storage          StorageConfig     `yaml:"storage"`
 	DefaultAgent     string            `yaml:"default_agent"`
 	DefaultTechStack string            `yaml:"default_tech_stack"`
+}
+
+type StorageConfig struct {
+	Path string `yaml:"path"` // Path to features.json file
 }
 
 type RepoConfig struct {

@@ -56,11 +56,21 @@ func New(cfg *Config) (*Foreman, error) {
 		return nil, fmt.Errorf("failed to create telegram bot: %w", err)
 	}
 
+	// Initialize storage if configured
+	var store *storage.FileStorage
+	if cfg.Storage.Path != "" {
+		store, err = storage.New(cfg.Storage.Path)
+		if err != nil {
+			return nil, fmt.Errorf("failed to initialize storage: %w", err)
+		}
+	}
+
 	f := &Foreman{
 		cfg:       cfg,
 		repo:      repo,
 		telegram:  tg,
 		speckit:   speckit.New(cfg.Repo.Path),
+		storage:   store,
 		taskQueue: make(chan *Task, 100),
 		features:  make(map[string]*Feature),
 		active:    make(map[string]context.CancelFunc),
@@ -82,6 +92,13 @@ func New(cfg *Config) (*Foreman, error) {
 		TestCommand: cfg.Review.Tools.TestCommand,
 		Linters:     cfg.Review.Tools.Linters,
 	})
+
+	// Load existing features from storage
+	if store != nil {
+		if err := f.loadFeaturesFromStorage(); err != nil {
+			log.Printf("Warning: Failed to load features from storage: %v", err)
+		}
+	}
 
 	return f, nil
 }
@@ -135,6 +152,8 @@ func (f *Foreman) StartFeature(ctx context.Context, name, description string) (*
 	f.featuresMu.Lock()
 	f.features[id] = feature
 	f.featuresMu.Unlock()
+
+	f.saveFeatureToStorage(feature)
 
 	f.telegram.Send(fmt.Sprintf(
 		"*New Feature Started*\n\nID: `%s`\nName: %s\nBranch: `%s`",
@@ -447,6 +466,7 @@ func (f *Foreman) runImplementationPhase(ctx context.Context, feature *Feature) 
 
 func (f *Foreman) completeFeature(feature *Feature) {
 	feature.Transition(PhaseComplete, "All tasks completed", "foreman")
+	f.saveFeatureToStorage(feature)
 
 	f.telegram.Send(fmt.Sprintf(
 		"*Feature Complete!*\n\nFeature: `%s`\nName: %s\nBranch: `%s`\n\nReady for final review and merge.",
@@ -456,6 +476,7 @@ func (f *Foreman) completeFeature(feature *Feature) {
 
 func (f *Foreman) handlePhaseError(feature *Feature, err error) {
 	feature.Transition(PhaseFailed, err.Error(), "foreman")
+	f.saveFeatureToStorage(feature)
 	f.telegram.Send(fmt.Sprintf("*Phase Failed*\n\nFeature: `%s`\nError: %v", feature.ID, err))
 }
 
@@ -794,4 +815,113 @@ func truncate(s string, max int) string {
 		return s
 	}
 	return s[:max-3] + "..."
+}
+
+// Storage methods
+
+func (f *Foreman) loadFeaturesFromStorage() error {
+	if f.storage == nil {
+		return nil
+	}
+
+	states, err := f.storage.LoadAllFeatures()
+	if err != nil {
+		return err
+	}
+
+	f.featuresMu.Lock()
+	defer f.featuresMu.Unlock()
+
+	for _, state := range states {
+		feature := f.featureStateToFeature(state)
+		f.features[feature.ID] = feature
+	}
+
+	if len(states) > 0 {
+		log.Printf("Loaded %d features from storage", len(states))
+	}
+
+	return nil
+}
+
+func (f *Foreman) saveFeatureToStorage(feature *Feature) {
+	if f.storage == nil {
+		return
+	}
+
+	state := f.featureToState(feature)
+	if err := f.storage.SaveFeature(state); err != nil {
+		log.Printf("Warning: Failed to save feature %s to storage: %v", feature.ID, err)
+	}
+}
+
+func (f *Foreman) featureToState(feature *Feature) *storage.FeatureState {
+	feature.mu.RLock()
+	defer feature.mu.RUnlock()
+
+	state := &storage.FeatureState{
+		ID:          feature.ID,
+		Name:        feature.Name,
+		Description: feature.Description,
+		Branch:      feature.Branch,
+		Phase:       string(feature.Phase),
+		TechStack:   feature.TechStack,
+		Constraints: feature.Constraints,
+		CreatedAt:   feature.CreatedAt,
+		UpdatedAt:   feature.UpdatedAt,
+		Answers:     feature.Answers,
+	}
+
+	for _, task := range feature.Tasks {
+		state.Tasks = append(state.Tasks, storage.TaskState{
+			ID:         task.ID,
+			Spec:       task.Spec,
+			Status:     string(task.Status),
+			Branch:     task.Branch,
+			AgentName:  task.AgentName,
+			IsParallel: task.IsParallel,
+			Attempt:    task.Attempt,
+			FeatureID:  task.FeatureID,
+		})
+	}
+
+	return state
+}
+
+func (f *Foreman) featureStateToFeature(state *storage.FeatureState) *Feature {
+	feature := &Feature{
+		ID:          state.ID,
+		Name:        state.Name,
+		Description: state.Description,
+		Branch:      state.Branch,
+		Phase:       Phase(state.Phase),
+		TechStack:   state.TechStack,
+		Constraints: state.Constraints,
+		CreatedAt:   state.CreatedAt,
+		UpdatedAt:   state.UpdatedAt,
+		Answers:     state.Answers,
+		Events:      []WorkflowEvent{},
+	}
+
+	if feature.Answers == nil {
+		feature.Answers = make(map[string]string)
+	}
+
+	for _, ts := range state.Tasks {
+		task := &Task{
+			ID:         ts.ID,
+			Spec:       ts.Spec,
+			Status:     TaskStatus(ts.Status),
+			Branch:     ts.Branch,
+			AgentName:  ts.AgentName,
+			IsParallel: ts.IsParallel,
+			Attempt:    ts.Attempt,
+			FeatureID:  ts.FeatureID,
+			Timeout:    f.cfg.Concurrency.TaskTimeout,
+			Metadata:   make(map[string]string),
+		}
+		feature.Tasks = append(feature.Tasks, task)
+	}
+
+	return feature
 }
